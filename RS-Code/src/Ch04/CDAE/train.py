@@ -1,3 +1,4 @@
+import math
 import random
 
 import torch
@@ -7,7 +8,6 @@ from model import CDAE
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class GetDataset(Dataset):
@@ -54,40 +54,18 @@ def getData(train_data_path, test_data_path, sep):
     train_mat = np.array(R.values, dtype=np.float32)
     test_mat = np.array(R_te.values, dtype=np.float32)
 
-    P_and_A = R.reset_index().melt(id_vars=['user_id'])
-    P_and_A.columns = ['user_id', 'item_id', 'rating']
+    PUA = R.reset_index().melt(id_vars=['user_id'])
+    PUA.columns = ['user_id', 'item_id', 'rating']
 
     # 所有的正样本P和负样本A
-    P = P_and_A.loc[P_and_A['rating'] == 1].reset_index(drop=True).drop('rating', axis=1)
-    A = P_and_A.loc[P_and_A['rating'] == 0].reset_index(drop=True).drop('rating', axis=1)
+    P = PUA.loc[PUA['rating'] == 1].reset_index(drop=True).drop('rating', axis=1)
+    A = PUA.loc[PUA['rating'] == 0].reset_index(drop=True).drop('rating', axis=1)
 
     # 所有用户的正样本P_u_set和负样本A_u_set
     P_u_set = P.groupby('user_id').apply(lambda x: list(x['item_id']))
     A_u_set = A.groupby('user_id').apply(lambda x: list(x['item_id']))
     J_u_te_set = test_data.groupby('user_id').apply(lambda x: set(x['item_id'].values)).to_dict()
     return uid, iid, train_mat, test_mat, J_u_te_set, P_u_set, A_u_set
-
-
-# def get_negative_items(batch_history_data, rate, dr_rate):
-#     data = batch_history_data.cpu().numpy()
-#     idx = np.zeros_like(data)
-#     corrupt_input = np.zeros_like(data)
-#     ls = [i for i in range(data.shape[1])]
-#     drop_nums = int(dr_rate * data.shape[1])
-#     for i in range(data.shape[0]):
-#         items = np.where(data[i] == 0)[0].tolist()
-#         p_nums = len(np.where(data[i] != 0)[0])
-#         items_num = len(items)
-#         num = items_num
-#         if p_nums * rate < items_num:
-#             num = items_num
-#         tmp_idx = random.sample(items, num)
-#         drop_idx = random.sample(ls, (data.shape[1] - drop_nums))
-#         idx[i][tmp_idx] = 1
-#         corrupt_input[i][drop_idx] = 1 / (1 - dr_rate) * data[i][drop_idx]
-#     idx = torch.tensor(idx).to(device) + batch_history_data
-#     corrupt_input = torch.Tensor(corrupt_input).to(device)
-#     return idx, corrupt_input
 
 
 def training(user_nums, item_nums, hidden_dimension, dr_rate, lr, epoch, rate, dataloader, train_mat, test_mat,
@@ -116,10 +94,15 @@ def training(user_nums, item_nums, hidden_dimension, dr_rate, lr, epoch, rate, d
             # 正样本和采样负样本的所有物品集合
             i_set = list(set(P_u + A_u_sample))
             out = mdl(uid, ratting_vec)
+            # if int(uid)==0:
+            #     print(uid)
+            #     print(mdl.encoder.U)
+            #     print(mdl.encoder.U.weight)
+            #     print(mdl.encoder.U(uid))
+            #     input()
             # rwave_u = mdl.rwave_u
             ywave_u = torch.where(mdl.rwave_u == 0, -1, 1)
-            # loss = -F.logsigmoid(ywave_u[0][i_set]*out[0][i_set]).sum()
-            loss = -loss_fn(ywave_u[0][i_set]*out[0][i_set]).sum()
+            loss = -loss_fn(ywave_u[0][i_set] * out[0][i_set]).sum()
             # loss = F.mse_loss(out[0][i_set], ratting_vec[0][i_set]*rwave_u[0][i_set]).sum()
             # print(out)
             # print(out[i_set])
@@ -210,11 +193,11 @@ if __name__ == '__main__':
     # Hyper parameters
     d = 20
     drop_rate = 0
-    q = 0.2
+    q = 0
     rho = 5
     epochs = 100
     batch_size = 1
-    learning_rate = 0.1
+    learning_rate = 0.01
     top_k = 5
 
     # Data loading

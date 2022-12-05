@@ -10,10 +10,10 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         self.activation = activation
         self.W = nn.Parameter(
-            torch.rand(out_features, in_features) * 4 * math.sqrt(6 / (in_features + 1 + out_features)))
-        # self.b_h = nn.Parameter(torch.zeros(out_features))
-        # self.U = nn.Embedding(user_num, out_features).from_pretrained(
-        #     torch.rand(user_num, out_features) * 4 * math.sqrt(6 / (in_features + 1 + out_features)))
+            torch.rand(out_features, in_features) * 4 * math.sqrt(6 / (in_features + out_features)))
+        self.b_h = nn.Parameter(torch.zeros(out_features))
+        self.U = nn.Embedding(user_num, out_features).from_pretrained(
+            torch.rand(user_num, out_features) * 4 * math.sqrt(6 / (in_features + out_features)))
 
     def forward(self, input_data: torch.Tensor, user_id: torch.Tensor) -> torch.Tensor:
         # return self.activation(F.linear(input_data, self.W, self.b_h) + self.U(user_id).squeeze(dim=1))
@@ -37,7 +37,7 @@ class CDAE(nn.Module):
         self.rwave_u = None
         self.denoiser = nn.Dropout(drop_rate)
         self.encoder = Encoder(item_nums, hidden_dimension, user_nums, nn.Identity())
-        self.decoder = Decoder(hidden_dimension, item_nums, nn.Sigmoid())
+        self.decoder = Decoder(hidden_dimension, item_nums, nn.Identity())
 
     def forward(self, uid, ratting_vec):
         rwave_u = self.denoiser(ratting_vec)
