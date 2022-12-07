@@ -63,5 +63,5 @@ class DataPreprocessor:
         uid, iid, train_set, test_set, vad_set = self.getData()
         dataset = GetDataset(train_set, iid)
         data_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=shuffle)
-        return uid, iid, data_loader
+        return uid, iid, data_loader, train_set, test_set, vad_set
 
